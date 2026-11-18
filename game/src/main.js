@@ -1,14 +1,17 @@
-// Boot and the one loop: input is read every frame, the world advances in fixed 1/60 s steps
-// (several in a slow frame, none in a fast one), and the renderer paints what is there. The game
-// moves between four screens: title, play, paused and game over.
+// Boot and the one loop: input is read every frame, the game advances in fixed
+// 1/60 s steps (several in a slow frame, none in a fast one), and the renderer
+// paints what is there. The game moves between four screens: title, play, paused
+// and game over.
 //
-// ?seed=N fixes the falling pattern. ?shot=start|play|end (with &seed=N) stages that scene
-// instead of running the loop, paints it twice and sets window.__shotReady for a screenshot.
-import { BEST_KEY, LIVES, STEP } from './config.js';
+// ?seed=N fixes the random pattern. ?shot=title|play|boss|results (with &seed=N)
+// stages that scene instead of running the loop, paints it twice and sets
+// window.__shotReady for a screenshot.
+import { BEST_KEY, STEP } from './config.js';
 import { createRandom } from './random.js';
-import { createWorld, EVENT_HIT, EVENT_OVER } from './world.js';
-import { ACTION_CONFIRM, ACTION_PAUSE, createInput } from './input.js';
-import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
+import { createGame, updateGame, SCREEN_OVER } from './game.js';
+import { createInput } from './input.js';
+import { createAudio } from './audio.js';
+import { createRenderer } from './render.js';
 import { stageShot } from './shots.js';
 
 /** The longest frame the loop catches up on; a longer stall (a hidden tab) is dropped, not replayed. */
@@ -21,8 +24,11 @@ const seed = Number.isInteger(seedParam) ? seedParam : Math.floor(Math.random() 
 
 const canvas = document.getElementById('game');
 const status = document.getElementById('status');
-const world = createWorld(createRandom(seed));
+const input = createInput(canvas);
+const audio = createAudio();
 const renderer = createRenderer(canvas);
+renderer.setSeed(seed);
+void createRandom(seed);
 
 function readBest() {
   try {
@@ -40,95 +46,84 @@ function saveBest(value) {
   }
 }
 
-function runShot(name) {
-  const scene = stageShot(name, world);
+let game;
+let frames = 0;
+
+function draw() {
+  renderer.draw(game, 0);
+  frames += 1;
+}
+
+if (shot) {
+  game = stageShot(shot, seed);
+  game.best = Math.max(game.best, readBest());
   let painted = 0;
-  function paint() {
-    renderer.draw(world.state, scene.screen, scene.best);
+  (function paint() {
+    draw();
     painted += 1;
     if (painted < 2) requestAnimationFrame(paint);
     else window.__shotReady = true;
-  }
-  requestAnimationFrame(paint);
-}
-
-function runGame() {
-  const input = createInput(canvas);
-  let screen = SCREEN_TITLE;
-  let best = readBest();
-  let accumulator = 0;
+  })();
+} else {
+  game = createGame(seed);
+  game.best = readBest();
   let last = performance.now();
-
-  // Screen readers (and anyone watching the page's text) hear the screen changes and each hit.
-  function announce(message) {
-    status.textContent = message;
-  }
-
-  function startGame() {
-    world.reset();
-    accumulator = 0;
-    screen = SCREEN_PLAY;
-    announce(`Playing. ${LIVES} lives.`);
-  }
-
-  function endGame() {
-    screen = SCREEN_OVER;
-    if (world.state.score > best) {
-      best = world.state.score;
-      saveBest(best);
-    }
-    announce(`Game over. Score ${world.state.score}. Best ${best}.`);
-  }
-
-  function handleActions() {
-    const actions = input.takeActions();
-    if (actions & ACTION_CONFIRM && (screen === SCREEN_TITLE || screen === SCREEN_OVER)) startGame();
-    else if (actions & ACTION_PAUSE && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    } else if (actions & (ACTION_PAUSE | ACTION_CONFIRM) && screen === SCREEN_PAUSED) {
-      screen = SCREEN_PLAY;
-      announce('Playing.');
-    }
-  }
-
-  function step() {
-    if (screen === SCREEN_TITLE) {
-      world.step(STEP, 0, true);
-      return;
-    }
-    const events = world.step(STEP, input.direction(), false);
-    if (events & EVENT_OVER) endGame();
-    else if (events & EVENT_HIT) announce(world.state.lives === 1 ? 'Hit. 1 life left.' : `Hit. ${world.state.lives} lives left.`);
-  }
+  let acc = 0;
+  let savedBest = game.best;
 
   function frame(now) {
-    requestAnimationFrame(frame);
-    accumulator += Math.min((now - last) / 1000, MAX_FRAME);
+    const elapsed = Math.min(MAX_FRAME, (now - last) / 1000);
     last = now;
-    handleActions();
-    if (screen === SCREEN_TITLE || screen === SCREEN_PLAY) {
-      while (accumulator >= STEP && (screen === SCREEN_TITLE || screen === SCREEN_PLAY)) {
-        step();
-        accumulator -= STEP;
+    acc += elapsed;
+    while (acc >= STEP) {
+      updateGame(game, input, audio, STEP);
+      input.endFrame();
+      acc -= STEP;
+      if (game.screen === SCREEN_OVER && game.best > savedBest) {
+        savedBest = game.best;
+        saveBest(game.best);
       }
-    } else {
-      accumulator = 0;
     }
-    renderer.draw(world.state, screen, best);
+    draw();
+    requestAnimationFrame(frame);
   }
-
-  // Leaving the tab pauses a running game rather than letting blocks fall unseen.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    }
-  });
-
-  announce('Block Dodger. Press Space or click to start.');
   requestAnimationFrame(frame);
 }
 
-if (shot) runShot(shot);
-else runGame();
+// A small live handle for headless play-tests: state, score, lives, wave, counts.
+window.__neonvoid = {
+  get state() {
+    return game.screen;
+  },
+  get score() {
+    return game.score;
+  },
+  get lives() {
+    return game.player.lives;
+  },
+  get wave() {
+    return game.waves.wave;
+  },
+  get kills() {
+    return game.kills;
+  },
+  get enemies() {
+    return game.enemies.length;
+  },
+  get bullets() {
+    return game.bullets.length;
+  },
+  get frames() {
+    return frames;
+  },
+  get boss() {
+    const b = game.waves.boss;
+    return b ? { hp: b.hp, maxHp: b.maxHp } : null;
+  },
+  get best() {
+    return game.best;
+  },
+  get player() {
+    return { x: Math.round(game.player.x), y: Math.round(game.player.y), alive: game.player.alive };
+  },
+};

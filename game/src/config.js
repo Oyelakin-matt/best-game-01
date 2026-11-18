@@ -1,61 +1,74 @@
-// Every tuning number and colour in one place. The playfield is a fixed 1280x720 logical area;
-// the renderer scales it to the window, so no rule below depends on the screen size.
+// NEON VOID — tuning and palette. One place for every number the game plays by,
+// so balance lives here and nowhere else.
+export const ARENA_W = 1280;
+export const ARENA_H = 720;
 
-export const FIELD = { width: 1280, height: 720, groundY: 664 };
-
-/** The simulation's fixed step, in seconds: 60 updates a second whatever the display's rate. */
 export const STEP = 1 / 60;
+export const BEST_KEY = 'neonvoid.best';
 
 export const PLAYER = {
-  width: 72,
-  height: 24,
-  speed: 560,
-  invulnerable: 1.5,
+  radius: 14,
+  speed: 430,
+  accel: 2600,
+  drag: 0.86,
+  fireInterval: 0.16,
+  bulletSpeed: 760,
+  bulletDamage: 1,
+  startLives: 3,
+  maxLives: 5,
+  invulnTime: 2.0,
+  shieldTime: 10,
+  powerTime: 9,
 };
 
-export const LIVES = 3;
-
-export const BLOCK = {
-  minWidth: 40,
-  maxWidth: 110,
-  height: 36,
-  speed: 240,
-  speedPerLevel: 30,
-  speedJitter: 90,
-  interval: 0.55,
-  intervalScale: 0.88,
-  minInterval: 0.14,
-  dodgePoints: 1,
+export const ENEMY = {
+  drifter: { hp: 1, speed: 170, radius: 16, score: 50, cost: 1 },
+  weaver: { hp: 2, speed: 150, radius: 16, score: 100, cost: 2 },
+  spitter: { hp: 3, speed: 110, radius: 18, score: 150, cost: 3 },
+  asteroid: { hp: 6, speed: 55, radius: 34, score: 80, cost: 2 },
+  asteroidSmall: { hp: 2, speed: 95, radius: 16, score: 40, cost: 0 },
 };
 
-export const COIN = {
-  size: 24,
-  speed: 190,
-  speedPerLevel: 14,
-  interval: 1.4,
-  intervalJitter: 0.8,
-  points: 10,
+export const BOSS = {
+  radius: 72,
+  baseHp: 120,
+  hpPerWave: 20,
+  score: 2000,
+  bulletSpeed: 260,
 };
 
-/** Seconds of play per level, and the last level: speeds and spawn rates stop growing there. */
-export const LEVEL = { seconds: 12, max: 12 };
-
-/** How many falling things can exist at once; the pool is allocated once, at boot. */
-export const POOL_SIZE = 64;
-
-export const PALETTE = {
-  backdrop: '#11141b',
-  sky: '#1b1f2a',
-  ground: '#2a3040',
-  player: '#4fc3f7',
-  block: '#e5534b',
-  coin: '#f2c94c',
-  panel: '#252b38',
-  text: '#eef1f5',
-  muted: '#8b93a3',
+export const POWERUP = {
+  dropChance: 0.12,
+  fallSpeed: 70,
+  radius: 15,
+  kinds: ['spread', 'rapid', 'shield', 'life'],
 };
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+export const COLORS = {
+  bgTop: '#070716',
+  bgBottom: '#0d0a2e',
+  player: '#00f0ff',
+  playerCore: '#e8ffff',
+  bullet: '#8ff7ff',
+  enemyBullet: '#ff5da2',
+  drifter: '#ff2d95',
+  weaver: '#ff9f1c',
+  spitter: '#b537f2',
+  asteroid: '#9aa5c4',
+  asteroidCrack: '#ffb347',
+  boss: '#ff2244',
+  bossCore: '#ff8095',
+  spread: '#39ff88',
+  rapid: '#ffe14d',
+  shield: '#4da6ff',
+  life: '#ff6ec7',
+  hud: '#e8f6ff',
+  hudDim: '#7d8db0',
+  gold: '#ffd166',
+};
 
-/** Where the best score is kept between visits (this browser only). */
-export const BEST_KEY = 'block-dodger.best';
+export const SCORE = {
+  waveClearBonus: 250,
+  killComboStep: 4,
+  maxMultiplier: 5,
+};

@@ -1,53 +1,98 @@
-// Keyboard and pointer input. Held keys give a steering direction; one-shot presses (start or
-// restart, pause) are queued as bit flags and taken once by the loop, so a press between two
-// frames is never lost and never counted twice.
+// Keyboard + mouse, read fresh every frame. Actions are edge-triggered where the
+// game needs one press to mean one thing (start, pause, restart); movement and
+// firing are held states.
+export const ACTION_CONFIRM = 'confirm';
+export const ACTION_PAUSE = 'pause';
+export const ACTION_MUTE = 'mute';
 
-export const ACTION_CONFIRM = 1;
-export const ACTION_PAUSE = 2;
+const MOVE_KEYS = {
+  KeyW: 'up', ArrowUp: 'up',
+  KeyS: 'down', ArrowDown: 'down',
+  KeyA: 'left', ArrowLeft: 'left',
+  KeyD: 'right', ArrowRight: 'right',
+};
 
-const LEFT = new Set(['ArrowLeft', 'KeyA']);
-const RIGHT = new Set(['ArrowRight', 'KeyD']);
-const CONFIRM = new Set(['Space', 'Enter']);
-const PAUSE = new Set(['KeyP', 'Escape']);
+export function createInput(canvas) {
+  const held = new Set();
+  const pressed = new Set();
+  const mouse = { x: 0, y: 0, down: false };
 
-export function createInput(target) {
-  let left = false;
-  let right = false;
-  let actions = 0;
+  function onKeyDown(e) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+      e.preventDefault();
+    }
+    if (e.repeat) return;
+    held.add(e.code);
+    pressed.add(e.code);
+    if (e.code === 'Enter' || e.code === 'Space') pressed.add(ACTION_CONFIRM);
+    if (e.code === 'KeyP' || e.code === 'Escape') pressed.add(ACTION_PAUSE);
+    if (e.code === 'KeyM') pressed.add(ACTION_MUTE);
+  }
 
-  window.addEventListener('keydown', (event) => {
-    if (LEFT.has(event.code)) left = true;
-    else if (RIGHT.has(event.code)) right = true;
-    else if (CONFIRM.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_CONFIRM;
-    } else if (PAUSE.has(event.code)) {
-      if (!event.repeat) actions |= ACTION_PAUSE;
-    } else return;
-    event.preventDefault();
-  });
-  window.addEventListener('keyup', (event) => {
-    if (LEFT.has(event.code)) left = false;
-    else if (RIGHT.has(event.code)) right = false;
-  });
-  // A key released while the tab is hidden never sends keyup: let go of everything on blur.
-  window.addEventListener('blur', () => {
-    left = false;
-    right = false;
-  });
-  target.addEventListener('pointerdown', () => {
-    actions |= ACTION_CONFIRM;
-  });
+  function onKeyUp(e) {
+    held.delete(e.code);
+  }
+
+  function onMouseMove(e) {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 1280;
+    mouse.y = ((e.clientY - rect.top) / rect.height) * 720;
+  }
+
+  function onMouseDown(e) {
+    if (e.button === 0) {
+      mouse.down = true;
+      pressed.add(ACTION_CONFIRM);
+    }
+  }
+
+  function onMouseUp(e) {
+    if (e.button === 0) mouse.down = false;
+  }
+
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('keyup', onKeyUp);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mousedown', onMouseDown);
+  window.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   return {
-    /** -1 for left, 1 for right, 0 for neither or both. */
-    direction() {
-      return (right ? 1 : 0) - (left ? 1 : 0);
+    mouse,
+    move() {
+      let x = 0;
+      let y = 0;
+      for (const code of held) {
+        const dir = MOVE_KEYS[code];
+        if (dir === 'up') y -= 1;
+        if (dir === 'down') y += 1;
+        if (dir === 'left') x -= 1;
+        if (dir === 'right') x += 1;
+      }
+      if (x !== 0 && y !== 0) {
+        const len = Math.hypot(x, y);
+        x /= len;
+        y /= len;
+      }
+      return { x, y };
     },
-    /** The one-shot presses since the last call, as ACTION_* flags. */
-    takeActions() {
-      const taken = actions;
-      actions = 0;
-      return taken;
+    firing() {
+      return held.has('Space') || mouse.down;
+    },
+    confirmPressed() {
+      return pressed.has(ACTION_CONFIRM);
+    },
+    pausePressed() {
+      return pressed.has(ACTION_PAUSE);
+    },
+    mutePressed() {
+      return pressed.has(ACTION_MUTE);
+    },
+    restartPressed() {
+      return pressed.has('KeyR');
+    },
+    endFrame() {
+      pressed.clear();
     },
   };
 }
