@@ -391,8 +391,13 @@ export function createRenderer(canvas) {
     glow('#ff2d95', 14);
     text('A NEON SPACE SHOOTER', ARENA_W / 2, 292, 20, '#ff8ac2', 'center');
     noGlow();
-    text('WASD / ARROWS — FLY      MOUSE — AIM      CLICK / SPACE — FIRE', ARENA_W / 2, 360, 17, COLORS.hud, 'center');
-    text('P — PAUSE      M — MUTE      GRAB POWER-UPS:  S SPREAD   R RAPID   H SHIELD   +1 LIFE', ARENA_W / 2, 392, 15, COLORS.hudDim, 'center');
+    if (g.touchControls) {
+      text('LEFT THUMB — FLY THE JOYSTICK      RIGHT THUMB — AIM AND FIRE', ARENA_W / 2, 360, 17, COLORS.hud, 'center');
+      text('GRAB POWER-UPS:  S SPREAD   R RAPID   H SHIELD   +1 LIFE', ARENA_W / 2, 392, 15, COLORS.hudDim, 'center');
+    } else {
+      text('WASD / ARROWS — FLY      MOUSE — AIM      CLICK / SPACE — FIRE', ARENA_W / 2, 360, 17, COLORS.hud, 'center');
+      text('P — PAUSE      M — MUTE      GRAB POWER-UPS:  S SPREAD   R RAPID   H SHIELD   +1 LIFE', ARENA_W / 2, 392, 15, COLORS.hudDim, 'center');
+    }
     text('SURVIVE THE WAVES. EVERY 5TH WAVE, THE VOID LEVIATHAN COMES.', ARENA_W / 2, 424, 15, COLORS.hudDim, 'center');
     const blink = Math.sin(g.time * 4) > -0.2;
     if (blink) {

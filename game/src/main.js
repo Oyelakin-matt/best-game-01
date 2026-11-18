@@ -30,6 +30,32 @@ const renderer = createRenderer(canvas);
 renderer.setSeed(seed);
 void createRandom(seed);
 
+// Touch devices show the joystick / fire-ring overlay (index.html); desktop
+// never gets the class, so its play and screenshots stay untouched.
+if (input.isTouch) document.body.classList.add('touch');
+const joyBase = document.getElementById('joy-base');
+const joyKnob = document.getElementById('joy-knob');
+const fireRing = document.getElementById('fire-ring');
+
+function updateTouchUi(t) {
+  if (t.joyId !== null) {
+    joyBase.style.display = 'block';
+    joyBase.style.left = `${t.joyOrigin.x}px`;
+    joyBase.style.top = `${t.joyOrigin.y}px`;
+    joyKnob.style.left = `${32 + t.joyVec.x * 32}px`;
+    joyKnob.style.top = `${32 + t.joyVec.y * 32}px`;
+  } else {
+    joyBase.style.display = 'none';
+  }
+  if (t.aimId !== null) {
+    fireRing.style.display = 'block';
+    fireRing.style.left = `${t.aimClient.x}px`;
+    fireRing.style.top = `${t.aimClient.y}px`;
+  } else {
+    fireRing.style.display = 'none';
+  }
+}
+
 function readBest() {
   try {
     return Number.parseInt(window.localStorage.getItem(BEST_KEY) ?? '0', 10) || 0;
@@ -52,6 +78,7 @@ let frames = 0;
 function draw() {
   renderer.draw(game, 0);
   frames += 1;
+  if (input.isTouch) updateTouchUi(input.touch);
 }
 
 if (shot) {
@@ -90,10 +117,27 @@ if (shot) {
   requestAnimationFrame(frame);
 }
 
+// The title screen shows touch instructions instead of keyboard ones on touch
+// devices; desktop text is unchanged.
+game.touchControls = input.isTouch;
+
 // A small live handle for headless play-tests: state, score, lives, wave, counts.
 window.__neonvoid = {
   get state() {
     return game.screen;
+  },
+  get muted() {
+    return game.muted;
+  },
+  get music() {
+    return audio.musicPlaying();
+  },
+  get touch() {
+    return input.isTouch;
+  },
+  get touchUiVisible() {
+    return document.body.classList.contains('touch')
+      && window.getComputedStyle(document.getElementById('touch-ui')).display !== 'none';
   },
   get score() {
     return game.score;

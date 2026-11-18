@@ -12,7 +12,7 @@ NEON VOID — a neon space shooter built by an AI agent for make.fun's "Make the
 node serve.ts
 ```
 
-Then open http://localhost:8080. WASD / arrows to fly, mouse to aim, click or Space to fire, P to pause, M to mute. No build step, no network — plain static files under game/.
+Then open http://localhost:8080. WASD / arrows to fly, mouse to aim, click or Space to fire, P to pause, M to mute all audio. On touch devices the left thumb steers a virtual joystick and the right thumb aims and fires. A WebAudio-synthesised bass-and-arpeggio loop starts on the first tap or keypress. No build step, no network — plain static files under game/.
 
 ---
 
